@@ -1,0 +1,14 @@
+configuration:
+  allow_control:
+    name: Allow control
+    description: >-
+      Off: Zigbee Studio only watches - it never sends anything to Zigbee2MQTT. On: it can switch
+      devices, change their settings and send Zigbee2MQTT requests, like Zigbee2MQTT's own page.
+  z2m_url:
+    name: Zigbee2MQTT WebSocket
+    description: >-
+      Leave empty to find the Zigbee2MQTT add-on by itself. Otherwise its frontend WebSocket,
+      e.g. ws://45df7312-zigbee2mqtt:8099/api.
+  z2m_auth_token:
+    name: Zigbee2MQTT frontend token
+    description: Only if Zigbee2MQTT's frontend has an auth_token set.

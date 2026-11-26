@@ -1,0 +1,21 @@
+{
+  "name": "zigbee-studio-web",
+  "private": true,
+  "version": "0.8.2",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "node src/kit/check.mjs && tsc --noEmit && vite build",
+    "check": "tsc --noEmit",
+    "test": "node --import ./tests/run.mjs --test --test-force-exit \"tests/*.test.ts\""
+  },
+  "dependencies": {
+    "@preact/signals": "2.11.4",
+    "preact": "10.29.8"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "2.10.6",
+    "typescript": "6.0.3",
+    "vite": "8.3.5"
+  }
+}

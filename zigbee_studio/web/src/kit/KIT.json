@@ -1,0 +1,22 @@
+{
+  "kit": "zigbee-ui",
+  "version": "1.2.0",
+  "files": {
+    "assets/zigbee-logo.png": "bef918a48da315a260a3da79b37adaaa4fa49554fd192964a76702fde2d08b1d",
+    "base.css": "d2598055f3c5c660c99f0a4b624039ec4b50aae72c07afb8b67784b79d42099d",
+    "chart.tsx": "9e60beb585f9e04b1a5dc928c8e0621ec36b4dbf5d123ba00a656a076effb3c0",
+    "dialog.tsx": "7b3f0ab880025b77901bb09619f556c90a59539db309e5b2970cfd4443a22ebe",
+    "family.ts": "49ebd3250cf45ba61999523ff1625c51840232437393df167d8c387e40c64e9e",
+    "fonts-ha.css": "b83aad9d3a8bdf5a9b2a5a9428b154ba96231848d1f099ae6848e2cd6f8f8010",
+    "format.ts": "f03b9f590a1957cba725355d06e8c7251567a1536bab64d0dc8f9b4fdaa857c8",
+    "icons.tsx": "099c9a20a7e59e9ffb74c97ae093489498f03eedac16a889eeb5ebe00c746e48",
+    "logo.ts": "78406fcd1fa6e76306bc53d6573206181d1d4fbe8539def897e3ba8afcdeee63",
+    "route.ts": "af7f761a645df3835a81f5f37430dc01ad81688519bebf35ead651b30eb559db",
+    "shell.tsx": "f305006a73856bb97aa1aeef3336fbfba2bd299f866f6a919ee19fc45daaae77",
+    "theme.ts": "9c3c817f21efa34ac4dd47ece09c624302e27004bf5b1da089af7ec19f16c04e",
+    "toast.tsx": "cc2860519fd7c1560377bb50b44b42b7225a1ede82176e7954e62666c2cdcd22",
+    "tokens.css": "f63195554ace1983c6aa13668fc6d9fd542980f709b24539bcc1d3e67277c448",
+    "ui.tsx": "411f7a5938c90708b5f8e3de0dfe29e3726f37c2b3f082a3c1ee668f662ebbac",
+    "zigbee.css": "24468c69c30a230ce2c476e033fcebd3b09b4102d1e765544c1cf6f8d900c065"
+  }
+}

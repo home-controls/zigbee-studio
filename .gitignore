@@ -1,0 +1,6 @@
+node_modules/
+.dev/
+__pycache__/
+*.pyc
+.pytest_cache/
+.dev-demo/
