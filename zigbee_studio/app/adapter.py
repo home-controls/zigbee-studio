@@ -10,6 +10,10 @@ Changes follow Studio's rule for Zigbee2MQTT's own settings: nothing that would 
 from its adapter. From here: the allowed Zigbee2MQTT host (refused if it would shut out the host
 connected now), reboot, reset statistics. Network, port, baud, firmware and the adapter's
 password stay on the adapter's own page. Changes need Allow control like any other.
+
+Since Zigbee Bridge 2.1.0 the API token may set the allowed host only to one address or a range of
+/8 or narrower; "anyone" (empty, 0.0.0.0/0) and wider ranges are the bridge's own dashboard's, and
+Studio refuses them before asking.
 """
 
 import asyncio
@@ -73,6 +77,13 @@ def check_read(path: Any, query: Any) -> tuple[str, dict]:
     return p, q
 
 
+# Zigbee Bridge 2.1.0+: what its API token may set radio 1's allowed host to
+MIN_PREFIX = 8
+GIVE_RULE = "Give one address like 192.168.1.50, or a range like 192.168.1.0/24"
+ANYONE = ("Zigbee Studio can't let anyone connect to the adapter: give one address or a range of /8 or narrower "
+          "(like 192.168.1.0/24), or set \"anyone\" on the adapter's own page")
+
+
 def allows(rule: str, ip: str) -> bool:
     """Whether the adapter's Zigbee2MQTT host rule ("" = anyone, an address or a CIDR) lets ip in."""
     if not rule:
@@ -92,13 +103,18 @@ def check_change(action: Any, args: Any, status: dict | None) -> tuple[str, dict
         return "/api/stats/reset", {}
     if action == "allow":
         rule = str((args or {}).get("allow", "")).strip() if isinstance(args, dict) else None
-        if rule is None or len(rule) > 18 or not re.fullmatch(r"[0-9./]*", rule):
-            raise ValueError("Give an address, a range like 192.168.1.0/24, or leave it empty for anyone")
-        if rule:
-            try:
-                ipaddress.ip_network(rule if "/" in rule else rule + "/32", strict=False)
-            except ValueError as e:
-                raise ValueError("Give an address, a range like 192.168.1.0/24, or leave it empty for anyone") from e
+        if rule == "":
+            raise ValueError(ANYONE)
+        if rule is None or len(rule) > 18 or not re.fullmatch(r"[0-9./]+", rule):
+            raise ValueError(GIVE_RULE)
+        try:
+            net = ipaddress.IPv4Network(rule if "/" in rule else rule + "/32", strict=False)
+        except ValueError as e:
+            raise ValueError(GIVE_RULE) from e
+        if net.prefixlen < MIN_PREFIX:
+            raise ValueError(ANYONE if net.prefixlen == 0 else
+                             f"A /{net.prefixlen} range is wider than the adapter lets Zigbee Studio set (/{MIN_PREFIX} "
+                             "or narrower, like 192.168.1.0/24): set wider ranges on the adapter's own page")
         client = ((status or {}).get("client") or {})
         if client.get("connected") and client.get("ip") and not allows(rule, client["ip"]):
             raise ValueError(f"That would shut out Zigbee2MQTT, connected now from {client['ip']}: "
@@ -227,7 +243,8 @@ class Adapter:
                                        "(Settings, API access) and link again")
                 if r.status == 403 and err == "setup required":
                     raise AdapterError("The adapter isn't set up yet: open its page and create its admin password")
-                if r.status == 400:
+                if r.status == 400 or (r.status == 403 and err and method != "GET"):
+                    # a change the adapter turned down (2.1.0+: what the API token may set) says why; the link is fine
                     raise ValueError(err or "The adapter refused it")
                 if r.status != 200:
                     raise AdapterError(err or f"The adapter answered HTTP {r.status}")

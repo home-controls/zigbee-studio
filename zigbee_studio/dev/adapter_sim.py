@@ -5,6 +5,7 @@ Zigbee2MQTT recording (their network addresses), traffic that moves, and setting
   uv run --python 3.12 --with aiohttp==3.10.10 python dev/adapter_sim.py [port]
 """
 
+import ipaddress
 import json
 import os
 import math
@@ -21,6 +22,18 @@ from aiohttp import web
 REC = DEV_DIR / "z2m_recording.jsonl"
 TOKEN = "0123456789abcdef" * 4  # the simulator's API token (dev only)
 BOOT = time.time()
+TOKEN_REFUSED = ("The API token can only set radio 1's allowed host to one address or a range of /8 or narrower; "
+                 "use the dashboard for the rest")
+
+
+def token_may_allow(rule) -> bool:
+    """What the bridge (2.1.0+) lets its API token set the allowed host to: a.b.c.d or a.b.c.d/nn, nn >= 8."""
+    if not isinstance(rule, str) or not rule:
+        return False
+    try:
+        return ipaddress.IPv4Network(rule if "/" in rule else rule + "/32", strict=False).prefixlen >= 8
+    except ValueError:
+        return False
 
 
 def recorded_devices() -> list[dict]:
@@ -148,7 +161,15 @@ def app() -> web.Application:
                                   "api": "zbbridge/1", "version": "1.0.2", "hostname": sim.cfg["hostname"]})
 
     async def config_post(r: web.Request):
-        body = await r.json()
+        try:
+            body = await r.json()
+        except ValueError:
+            return web.json_response({"error": "bad JSON"}, status=400)
+        # Zigbee Bridge 2.1.0+: the API token (all this simulator takes) may only set radio 1's allowed host, to one
+        # address or a range of /8 or narrower; "anyone" (empty, 0.0.0.0/0), wider ranges and every other setting
+        # are the dashboard's
+        if not isinstance(body, dict) or set(body) != {"allow"} or not token_may_allow(body["allow"]):
+            return web.json_response({"error": TOKEN_REFUSED}, status=403)
         if "allow" in body:
             sim.cfg["allow"] = body["allow"]
             sim.event(0, f"Z2M host set to '{body['allow'] or 'anyone'}'")

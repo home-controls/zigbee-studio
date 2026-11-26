@@ -287,11 +287,11 @@ export function AdapterSettings() {
                 <label>Allowed Zigbee2MQTT host
                   <input value={allow ?? s.client.allowed} placeholder="anyone" disabled={!control.value}
                     onInput={(e) => setAllow((e.target as HTMLInputElement).value)} />
-                  <span class="field-help">Only this address (or range) may connect to tcp/{s.client.tcp_port}. Zigbee Studio refuses a value that would shut out {s.client.connected ? `Zigbee2MQTT at ${s.client.ip}` : "Zigbee2MQTT"}.</span>
+                  <span class="field-help">Only this address, or a range of /8 or narrower like 192.168.1.0/24, may connect to tcp/{s.client.tcp_port}. Letting anyone connect is set on {linkOf(a.host)} only. Zigbee Studio refuses a value that would shut out {s.client.connected ? `Zigbee2MQTT at ${s.client.ip}` : "Zigbee2MQTT"}.</span>
                 </label>
               </div>
               <div class="row-btns">
-                <button type="button" class="btn primary" disabled={!control.value || allow === null || allow.trim() === s.client.allowed} onClick={saveAllow}>Save</button>
+                <button type="button" class="btn primary" disabled={!control.value || allow === null || !allow.trim() || allow.trim() === s.client.allowed} onClick={saveAllow}>Save</button>
                 <button type="button" class="btn" disabled={!control.value} onClick={reboot}><Icon name="power" size={15} /> Reboot</button>
                 <button type="button" class="btn" disabled={!control.value} onClick={reset}><Icon name="refresh" size={15} /> Reset statistics</button>
               </div>

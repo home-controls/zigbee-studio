@@ -134,9 +134,10 @@ when you want to switch devices and change settings from it.
   that serves it to Zigbee2MQTT over TCP), link Zigbee Studio to it with its address (offered
   from Zigbee2MQTT's `serial.port` when that is `tcp://...`) and an API token made on the
   adapter's own page (Settings, API access). The token stays in the add-on and is never shown
-  again. With Allow control: the adapter's allowed Zigbee2MQTT host (refused if it would shut out
-  the Zigbee2MQTT connected now), reboot, reset its statistics, unlink. Its network, port, baud,
-  firmware and password are changed only on its own page.
+  again. With Allow control: the adapter's allowed Zigbee2MQTT host (one address or a range of /8
+  or narrower; refused if it would shut out the Zigbee2MQTT connected now), reboot, reset its
+  statistics, unlink. Letting anyone connect, and its network, port, baud, firmware and password,
+  are changed only on its own page.
 
 **Ctrl K** (or **/**) searches devices, rooms, groups and pages from anywhere. Errors Zigbee2MQTT
 logs show as a note in the corner.

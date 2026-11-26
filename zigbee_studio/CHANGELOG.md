@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.8.4
+
+- **Network adapter, allowed Zigbee2MQTT host**: follows Zigbee Bridge 2.1.0, whose API token may set it
+  only to one address or a range of /8 or narrower (like `192.168.1.0/24`). Studio no longer offers
+  "leave it empty for anyone": an empty rule, `0.0.0.0/0` or a range wider than /8 is refused with a
+  pointer to the adapter's own page, where letting anyone connect is still set. The guard that refuses
+  a rule shutting out the connected Zigbee2MQTT stays.
+- When the adapter turns a change down anyway, its own reason shows instead of a generic error, and the
+  link isn't marked as in trouble.
+- Development: the adapter simulator refuses what the bridge refuses with the API token (403 for anyone,
+  wider than /8, or any other setting).
+
 ## 0.8.3
 
 - **Ready-made images**: releases are built on GitHub, so installing or updating downloads a finished

@@ -64,7 +64,7 @@ def test_only_changes_that_keep_zigbee2mqtt_connected():
     connected = {"client": {"connected": True, "ip": "192.168.1.10"}}
     assert check_change("allow", {"allow": "192.168.1.10"}, connected) == ("/api/config", {"allow": "192.168.1.10"})
     assert check_change("allow", {"allow": "192.168.1.0/24"}, connected)[1] == {"allow": "192.168.1.0/24"}
-    assert check_change("allow", {"allow": ""}, connected)[1] == {"allow": ""}
+    assert check_change("allow", {"allow": "192.0.0.0/8"}, connected)[1] == {"allow": "192.0.0.0/8"}
     with pytest.raises(ValueError, match="shut out Zigbee2MQTT"):
         check_change("allow", {"allow": "192.168.1.20"}, connected)
     assert check_change("allow", {"allow": "192.168.1.20"}, {"client": {"connected": False}})[1] == {"allow": "192.168.1.20"}
@@ -77,6 +77,31 @@ def test_only_changes_that_keep_zigbee2mqtt_connected():
         with pytest.raises(ValueError):
             check_change(action, {"tcp_port": 1}, None)
     assert allows("", "1.2.3.4") and allows("10.0.0.0/8", "10.9.8.7") and not allows("10.0.0.1", "10.0.0.2")
+
+
+def test_the_api_token_never_lets_anyone_in():
+    """Zigbee Bridge 2.1.0+: the API token sets the allowed host only to one address or a range of /8 or
+    narrower. Studio refuses the rest before asking, pointing at the adapter's own page."""
+    for anyone in ("", "  ", "0.0.0.0/0"):
+        with pytest.raises(ValueError, match="can't let anyone connect.*adapter's own page"):
+            check_change("allow", {"allow": anyone}, None)
+    with pytest.raises(ValueError, match="can't let anyone"):
+        check_change("allow", {}, None)
+    for wide in ("10.0.0.0/7", "128.0.0.0/1", "192.168.1.0/4"):
+        with pytest.raises(ValueError, match=r"/[1-7] range is wider.*adapter's own page"):
+            check_change("allow", {"allow": wide}, None)
+    for ok in ("10.0.0.0/8", "10.1.0.0/16", "192.168.1.0/24", "192.168.1.50", "192.168.1.50/32"):
+        assert check_change("allow", {"allow": ok}, None) == ("/api/config", {"allow": ok})
+    # the guard that keeps Zigbee2MQTT connected still applies to a narrow rule
+    with pytest.raises(ValueError, match="shut out Zigbee2MQTT"):
+        check_change("allow", {"allow": "10.0.0.0/8"}, {"client": {"connected": True, "ip": "192.168.1.10"}})
+
+
+def test_simulator_refuses_what_the_bridge_refuses():
+    for rule in ("10.0.0.0/8", "192.168.1.0/24", "192.168.1.50"):
+        assert adapter_sim.token_may_allow(rule)
+    for rule in ("", "0.0.0.0/0", "10.0.0.0/7", "1.2.3.4/33", "abc", None, 5):
+        assert not adapter_sim.token_may_allow(rule)
 
 
 async def _sim():
@@ -117,6 +142,14 @@ def test_link_read_change_and_unlink(tmp_path):
             r = await a.change("allow", {"allow": "172.30.33.0/24"})
             assert r["allow"] == "172.30.33.0/24"
             assert (await a.get("status"))["client"]["allowed"] == "172.30.33.0/24"  # cache dropped after a change
+            # the bridge's own refusal reaches the page as it is, and doesn't mark the link broken
+            bridge_says = "The API token can only set radio 1's allowed host"
+            for body in ({"allow": ""}, {"allow": "0.0.0.0/0"}, {"allow": "10.0.0.0/7"},
+                         {"allow": "172.30.33.5", "tcp_port": 6639}, {"hostname": "x"}):
+                with pytest.raises(ValueError, match=bridge_says):
+                    await a._request("POST", "/api/config", json=body)
+            assert a.info()["error"] == "" and a.linked
+            assert (await a._request("GET", "/api/config"))["allow"] == "172.30.33.0/24"  # nothing changed
             await a.change("stats_reset", {})
             await a.change("reboot", {})
             a.unlink()

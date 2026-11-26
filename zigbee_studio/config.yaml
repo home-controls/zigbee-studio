@@ -1,5 +1,5 @@
 name: Zigbee Studio
-version: "0.8.3"
+version: "0.8.4"
 slug: zigbee_studio
 description: >-
   A fast, live web UI for Zigbee2MQTT, beside its own: devices by floor and room, every setting a
