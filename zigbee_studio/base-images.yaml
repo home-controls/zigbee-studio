@@ -1,0 +1,6 @@
+# What CI and the Release workflow build from: build.yaml's base images pinned by digest, so a release
+# builds from exactly this base. Not Home Assistant's format (build.yaml can't hold a digest). Change
+# it together with build.yaml: tools/base_digest.sh <tag> prints these lines.
+build_from:
+  aarch64: ghcr.io/home-assistant/aarch64-base-python:3.12-alpine3.24@sha256:cb2671d0b48e9b62d4d2b75acd74570fd9491245cf34d4385929c3aac84ac62c
+  amd64: ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.24@sha256:e1315f65bfade974c84e8f2f7ca6281f65369aec1551a1cf331a469d001b5d71

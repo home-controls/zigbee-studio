@@ -11,6 +11,9 @@
   link isn't marked as in trouble.
 - Development: the adapter simulator refuses what the bridge refuses with the API token (403 for anyone,
   wider than /8, or any other setting).
+- Packaging: `build.yaml` names the base image by tag only, the form Home Assistant accepts; the
+  digest pins releases build from moved to `base-images.yaml`, and CI checks the two agree. The test
+  requirements include PyYAML, which the packaging test needs.
 
 ## 0.8.3
 

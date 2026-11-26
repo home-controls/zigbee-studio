@@ -79,6 +79,17 @@ jobs:
         uses: frenck/action-addon-linter@d51677290aef26cdfc835271dd3c7343ce502809 # v2.21.2
         with:
           path: ./zigbee_studio
+      - name: base-images.yaml pins build.yaml's base images (same tag, plus a digest)
+        run: |
+          for arch in aarch64 amd64; do
+            tag=$(sed -n "s/^  $arch: *//p" "$ADDON/build.yaml")
+            pin=$(sed -n "s/^  $arch: *//p" "$ADDON/base-images.yaml")
+            case "$pin" in
+              "$tag"@sha256:????????????????????????????????????????????????????????????????) ;;
+              *) echo "::error::$arch: build.yaml says '$tag', base-images.yaml says '$pin' (want the same tag @sha256:<digest>)"; exit 1 ;;
+            esac
+            [ -n "$tag" ] || { echo "::error::build.yaml has no $arch base"; exit 1; }
+          done
       - name: Versions agree and the changelog has this one
         run: python3 tools/release_info.py
       - name: Workflow security audit (zizmor)
@@ -103,7 +114,7 @@ jobs:
         env:
           ARCH: ${{ matrix.arch }}
         run: |
-          from=$(sed -n "s/^  $ARCH: *//p" "$ADDON/build.yaml")
+          from=$(sed -n "s/^  $ARCH: *//p" "$ADDON/base-images.yaml")
           docker build --pull --build-arg BUILD_FROM="$from" -t addon-under-test "$ADDON"
       - name: The tests pass inside the image (its own Python and libraries)
         run: |

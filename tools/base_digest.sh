@@ -1,6 +1,7 @@
 #!/bin/sh
-# base_digest.sh <tag>: the digests of Home Assistant's Python base image for both architectures, for
-# build.yaml (which pins tag@digest, so a release builds from exactly that base).
+# base_digest.sh <tag>: the digests of Home Assistant's Python base image for both architectures, as the
+# lines for base-images.yaml (tag@digest, so a release builds from exactly that base; build.yaml keeps
+# the same tags without the digest).
 #   sh tools/base_digest.sh 3.12-alpine3.24
 set -eu
 tag=${1:?usage: base_digest.sh <tag, e.g. 3.12-alpine3.24>}

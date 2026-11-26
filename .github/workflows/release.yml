@@ -92,7 +92,7 @@ jobs:
           persist-credentials: false
       - id: x
         run: |
-          echo "from=$(sed -n "s/^  $ARCH: *//p" "$ADDON/build.yaml")" >> "$GITHUB_OUTPUT"
+          echo "from=$(sed -n "s/^  $ARCH: *//p" "$ADDON/base-images.yaml")" >> "$GITHUB_OUTPUT"
           echo "name=${IMAGE/\{arch\}/$ARCH}" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - if: needs.info.outputs.publish == 'true'
