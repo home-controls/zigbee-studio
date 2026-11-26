@@ -1,5 +1,5 @@
 name: Zigbee Studio
-version: "0.8.2"
+version: "0.8.3"
 slug: zigbee_studio
 description: >-
   A fast, live web UI for Zigbee2MQTT, beside its own: devices by floor and room, every setting a
@@ -9,6 +9,7 @@ description: >-
   and a network adapter's (Zigbee Ethernet bridge's) health and traffic.
   Read-only until you allow control.
 url: https://github.com/home-controls/zigbee-studio
+image: ghcr.io/home-controls/{arch}-zigbee-studio
 arch:
   - aarch64
   - amd64

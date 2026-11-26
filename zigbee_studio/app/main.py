@@ -28,7 +28,7 @@ from hass import HomeAssistant
 from hub import Hub
 from z2m import Z2M
 
-VERSION = "0.8.2"
+VERSION = "0.8.3"
 
 logging.basicConfig(level=os.environ.get("STUDIO_LOG", "INFO"), format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 log = logging.getLogger("studio")

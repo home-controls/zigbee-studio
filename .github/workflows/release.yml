@@ -1,0 +1,174 @@
+# A release: push a tag v<version> (the version in config.yaml) on a commit that follows main.
+#   1. checks the tag against the files and the changelog, and that main can move to it
+#   2. runs CI
+#   3. builds the image for each architecture on its own runner, pushes it to GitHub's registry with a
+#      signed build provenance (gh attestation verify oci://<image> --repo <this repo>)
+#   4. moves main to the tag, which is when Home Assistant sees the update (the images exist by then),
+#      and makes the GitHub release from the changelog
+# Run by hand (Actions, Release, Run workflow) it is a dry run: it builds everything and publishes nothing.
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]*.[0-9]*.[0-9]*"]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  ADDON: zigbee_studio
+  TITLE: Zigbee Studio
+
+jobs:
+  info:
+    name: Check the release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      image: ${{ steps.v.outputs.image }}
+      publish: ${{ steps.v.outputs.publish }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: v
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version=$(python3 tools/release_info.py --tag "$GITHUB_REF_NAME")
+            if ! git merge-base --is-ancestor origin/main HEAD; then
+              echo "::error::$GITHUB_REF_NAME doesn't follow main, so main can't move to it: tag a commit on top of main"
+              exit 1
+            fi
+            publish=true
+          else
+            version=$(python3 tools/release_info.py)
+            publish=false
+          fi
+          image=$(sed -n 's/^image: *//p' "$ADDON/config.yaml")
+          case "$image" in ghcr.io/*/{arch}-*) ;; *) echo "::error::config.yaml image should be ghcr.io/<owner>/{arch}-<name>, not '$image'"; exit 1 ;; esac
+          {
+            echo "version=$version"
+            echo "image=$image"
+            echo "publish=$publish"
+          } >> "$GITHUB_OUTPUT"
+          echo "$TITLE $version ($([ "$publish" = true ] && echo release || echo dry run))" >> "$GITHUB_STEP_SUMMARY"
+
+  ci:
+    name: CI
+    needs: info
+    permissions:
+      contents: read
+    uses: ./.github/workflows/ci.yml
+
+  image:
+    name: Image (${{ matrix.arch }})
+    needs: [info, ci]
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write # push to ghcr.io
+      id-token: write # sign the build provenance
+      attestations: write # store that signed provenance
+    strategy:
+      matrix:
+        include:
+          - { arch: amd64, runner: ubuntu-24.04 }
+          - { arch: aarch64, runner: ubuntu-24.04-arm }
+    env:
+      ARCH: ${{ matrix.arch }}
+      VERSION: ${{ needs.info.outputs.version }}
+      IMAGE: ${{ needs.info.outputs.image }}
+      PUBLISH: ${{ needs.info.outputs.publish }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: x
+        run: |
+          echo "from=$(sed -n "s/^  $ARCH: *//p" "$ADDON/build.yaml")" >> "$GITHUB_OUTPUT"
+          echo "name=${IMAGE/\{arch\}/$ARCH}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - if: needs.info.outputs.publish == 'true'
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: ${{ env.ADDON }}
+          pull: true
+          push: ${{ needs.info.outputs.publish == 'true' }}
+          provenance: false # one plain image per architecture, the way Home Assistant pulls it
+          sbom: false
+          build-args: BUILD_FROM=${{ steps.x.outputs.from }}
+          tags: |
+            ${{ steps.x.outputs.name }}:${{ needs.info.outputs.version }}
+            ${{ steps.x.outputs.name }}:latest
+          labels: |
+            io.hass.name=${{ env.TITLE }}
+            io.hass.version=${{ needs.info.outputs.version }}
+            io.hass.type=addon
+            io.hass.arch=${{ matrix.arch }}
+            org.opencontainers.image.title=${{ env.TITLE }}
+            org.opencontainers.image.version=${{ needs.info.outputs.version }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.licenses=MIT
+      - if: needs.info.outputs.publish == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ steps.x.outputs.name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+  publish:
+    name: Publish
+    needs: [info, image]
+    if: needs.info.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    # Settings, Environments, release: add yourself as a required reviewer to approve each release by
+    # hand, and limit it to v* tags
+    environment: release
+    permissions:
+      contents: write # move main, make the release
+    env:
+      VERSION: ${{ needs.info.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false # the push below gets the token for itself only
+      - name: Images are public (Home Assistant pulls them without signing in)
+        run: |
+          for arch in amd64 aarch64; do
+            name="${IMAGE/\{arch\}/$arch}"; repo="${name#ghcr.io/}"
+            token=$(curl -fsS "https://ghcr.io/token?scope=repository:$repo:pull" | jq -r .token)
+            curl -fsS -o /dev/null -H "Authorization: Bearer $token" \
+              -H "Accept: application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json" \
+              "https://ghcr.io/v2/$repo/manifests/$VERSION" \
+              || { echo "::error::$name:$VERSION can't be pulled anonymously: make the package public (Packages, Package settings, Change visibility), then re-run this job"; exit 1; }
+          done
+        env:
+          IMAGE: ${{ needs.info.outputs.image }}
+      - name: Move main to the release (Home Assistant sees it now)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          echo "::add-mask::$auth"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push origin "HEAD:refs/heads/main"
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 tools/release_info.py --tag "$GITHUB_REF_NAME" --notes "$RUNNER_TEMP/notes.md" >/dev/null
+          gh release create "$GITHUB_REF_NAME" --verify-tag --title "$TITLE $VERSION" --notes-file "$RUNNER_TEMP/notes.md"

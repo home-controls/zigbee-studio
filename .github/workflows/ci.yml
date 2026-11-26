@@ -1,0 +1,111 @@
+# Tests, the web page, the add-on and its image, on every push and pull request; the release
+# workflow runs this first too. Read-only: no secrets, no publishing.
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_call:
+
+permissions: {}
+
+# a newer push to the same branch replaces a running check; a release's own run is never cancelled
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/heads/') || github.event_name == 'pull_request' }}
+
+env:
+  ADDON: zigbee_studio
+
+jobs:
+  python:
+    name: Python tests
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install (locked, hashes checked)
+        run: pip install --require-hashes -r "$ADDON/requirements.lock" -r "$ADDON/tests/requirements.lock"
+      - name: Tests
+        working-directory: ${{ env.ADDON }}
+        run: python -m pytest -q
+
+  web:
+    name: Web page
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: zigbee_studio/web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Install (lockfile only, no install scripts)
+        run: npm ci --ignore-scripts
+      - name: Tests
+        run: npm test
+      - name: Build (kit check, type check, bundle)
+        run: npm run build
+      - name: The committed page is this build
+        run: |
+          if [ -n "$(git status --porcelain -- ../app/static)" ]; then
+            git status --short -- ../app/static
+            echo "::error::app/static doesn't match web/: run npm run build in $ADDON/web and commit the result"
+            exit 1
+          fi
+
+  addon:
+    name: Add-on checks
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Home Assistant add-on lint
+        uses: frenck/action-addon-linter@d51677290aef26cdfc835271dd3c7343ce502809 # v2.21.2
+        with:
+          path: ./zigbee_studio
+      - name: Versions agree and the changelog has this one
+        run: python3 tools/release_info.py
+      - name: Workflow security audit (zizmor)
+        run: pipx run zizmor==1.33.1 --persona regular --min-severity medium .github/workflows
+
+  image:
+    name: Image (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: amd64, runner: ubuntu-24.04 }
+          - { arch: aarch64, runner: ubuntu-24.04-arm }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: |
+          from=$(sed -n "s/^  $ARCH: *//p" "$ADDON/build.yaml")
+          docker build --pull --build-arg BUILD_FROM="$from" -t addon-under-test "$ADDON"
+      - name: The tests pass inside the image (its own Python and libraries)
+        run: |
+          docker run --rm --entrypoint sh -v "$PWD/$ADDON:/src:ro" -w /src addon-under-test -c \
+            "pip install -q --require-hashes -r tests/requirements.lock && python -m pytest -q -p no:cacheprovider"

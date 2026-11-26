@@ -1,3 +1,5 @@
+# Pinned by digest: a release builds from exactly this base. To move to a newer one, change the tag
+# and the digest together (tools/base_digest.sh prints the digest for a tag).
 build_from:
-  aarch64: ghcr.io/home-assistant/aarch64-base-python:3.12-alpine3.20
-  amd64: ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.20
+  aarch64: ghcr.io/home-assistant/aarch64-base-python:3.12-alpine3.24@sha256:cb2671d0b48e9b62d4d2b75acd74570fd9491245cf34d4385929c3aac84ac62c
+  amd64: ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.24@sha256:e1315f65bfade974c84e8f2f7ca6281f65369aec1551a1cf331a469d001b5d71

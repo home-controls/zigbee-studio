@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.3
+
+- **Ready-made images**: releases are built on GitHub, so installing or updating downloads a finished
+  image instead of building it on your Home Assistant machine. Faster, and the same for everyone.
+
 ## 0.8.2
 
 - The other Zigbee apps' menus can find the Zigbee Bridge: Studio answers `api/family` (through Home

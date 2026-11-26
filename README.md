@@ -85,6 +85,17 @@ How it works, how to run it on a PC with a simulator, and how releases are made:
 [`zigbee_studio/README.md`](zigbee_studio/README.md). The shared look comes from
 [zigbee-ui](https://github.com/home-controls/zigbee-ui).
 
+## How releases are made
+
+Every release is built by GitHub Actions from a tagged commit in this repository: the tests run,
+then the add-on image is built for each architecture and published to GitHub's container registry,
+with a signed record of how and from which commit it was built. Home Assistant only offers the update
+once its images exist. To check an image yourself, with the [GitHub CLI](https://cli.github.com/):
+
+```
+gh attestation verify oci://ghcr.io/home-controls/amd64-zigbee-studio:<version> --repo home-controls/zigbee-studio
+```
+
 ## License
 
 MIT, see [LICENSE](LICENSE). Zigbee and the Zigbee logo are trademarks of the Connectivity Standards
